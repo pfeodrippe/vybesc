@@ -7,18 +7,19 @@
 
 namespace VybeSC {
 
-class VybeSC : public SCUnit {
-public:
-    VybeSC();
+    class VybeSC : public SCUnit {
 
-    // Destructor
-    // ~VybeSC();
+    public:
+        VybeSC();
 
-private:
-    // Calc function
-    void next(int nSamples);
+        // Destructor
+        // ~VybeSC();
 
-    // Member variables
-};
+    private:
+        // Calc function
+        void next(int nSamples);
+
+        // Member variables
+    };
 
 } // namespace VybeSC

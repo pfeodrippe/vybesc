@@ -18,11 +18,11 @@ namespace VybeSC {
         JanetTable *env = janet_core_env(NULL);
 
         Janet out;
-        int status = janet_dostring(env, "(+ 2 1) (= 0 2)", "main", &out);
+        int status = janet_dostring(env, "(eval-string (slurp \"/Users/pfeodrippe/dev/vybe/code.edn\"))", "main", &out);
 
         std::ostringstream stringStream;
         // stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" string(" << status << " \" \" " << janet_type(out) << "))";
-        stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" \"" << janet_type(out) << "\")";
+        stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" \"" << janet_unwrap_number(out) << "\")";
         std::string copyOfStr = stringStream.str();
         janet_dostring(env, copyOfStr.c_str(), "main", &out);
 
