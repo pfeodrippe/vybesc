@@ -15,21 +15,32 @@ namespace VybeSC {
         next(1);
 
         janet_init();
-        JanetTable *env = janet_core_env(NULL);
+        jenv = janet_core_env(NULL);
 
         Janet out;
-        int status = janet_dostring(env, "(eval-string (slurp \"/Users/pfeodrippe/dev/vybe/code.edn\"))", "main", &out);
+        int status = janet_dostring(jenv, "(defn my-fn [] -9900) (eval-string (slurp \"/Users/pfeodrippe/dev/vybe/code.edn\"))", "main", &out);
+
+        Janet mainfun;
+        janet_resolve(jenv, janet_csymbol("my-fn"), &mainfun);
+        JanetFunction *my_fn = janet_unwrap_function(mainfun);
+        JanetFiber *fiber = janet_fiber(my_fn, 64, 0, NULL);
+        janet_gcroot(janet_wrap_fiber(fiber));
+        fiber->env = jenv;
+        Janet out2;
+        janet_pcall(my_fn, 0, NULL, &out2, &fiber);
 
         std::ostringstream stringStream;
         // stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" string(" << status << " \" \" " << janet_type(out) << "))";
-        stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" \"" << janet_unwrap_number(out) << "\")";
+        stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" \"" << janet_unwrap_number(out) << " " << janet_unwrap_number(out2)  << "\")";
         std::string copyOfStr = stringStream.str();
-        janet_dostring(env, copyOfStr.c_str(), "main", &out);
-
-        janet_deinit();
+        janet_dostring(jenv, copyOfStr.c_str(), "main", &out);
     }
 
     void VybeSC::next(int nSamples) {
+
+        //Janet jout;
+        //janet_dostring(jenv, "(eval-string (slurp \"/Users/pfeodrippe/dev/vybe/code.edn\"))", "main", &jout);
+        //float myconst = janet_unwrap_number(jout);
 
         // Audio rate input
         const float* input = in(0);

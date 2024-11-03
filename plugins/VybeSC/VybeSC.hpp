@@ -4,6 +4,7 @@
 #pragma once
 
 #include "SC_PlugIn.hpp"
+#include <janet.h>
 
 namespace VybeSC {
 
@@ -20,6 +21,7 @@ namespace VybeSC {
         void next(int nSamples);
 
         // Member variables
+        JanetTable *jenv;
     };
 
 } // namespace VybeSC
