@@ -64,9 +64,13 @@ endif()
 ####################################################################################################
 # Begin target VybeSC
 
+include_directories(c)
+
 set(VybeSC_cpp_files
     plugins/VybeSC/VybeSC.cpp
     plugins/VybeSC/VybeSC.hpp
+    c/janet.c
+    c/janet.h
 )
 set(VybeSC_sc_files
     plugins/VybeSC/VybeSC.sc
@@ -81,7 +85,15 @@ sc_add_server_plugin(
     "${VybeSC_cpp_files}"
     "${VybeSC_sc_files}"
     "${VybeSC_schelp_files}"
-)
+  )
+
+  # add_executable(
+  #   plugins/VybeSC/janet.c
+  # )
+
+  # target_include_directories(VybeSC PRIVATE
+  #   plugins/VybeSC
+  # )
 
 # End target VybeSC
 ####################################################################################################

@@ -3,6 +3,7 @@
 
 #include "SC_PlugIn.hpp"
 #include "VybeSC.hpp"
+#include <janet.h>
 
 static InterfaceTable* ft;
 
@@ -11,6 +12,8 @@ namespace VybeSC {
 VybeSC::VybeSC() {
     mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
     next(1);
+
+    janet_init();
 }
 
 void VybeSC::next(int nSamples) {
@@ -19,7 +22,7 @@ void VybeSC::next(int nSamples) {
     const float* input = in(0);
 
     // Control rate parameter: gain.
-    const float gain = in0(1);
+    const float gain = 1.0f - in0(1);
 
     // Output buffer
     float* outbuf = out(0);
