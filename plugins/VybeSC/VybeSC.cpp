@@ -14,6 +14,9 @@ VybeSC::VybeSC() {
     next(1);
 
     janet_init();
+    JanetTable *env = janet_core_env(NULL);
+    janet_dostring(env, "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" \"text\")", "main", NULL);
+    janet_deinit();
 }
 
 void VybeSC::next(int nSamples) {

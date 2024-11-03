@@ -26,6 +26,11 @@ Then, use CMake to configure and build it:
     cmake --build . --config Release
     cmake --build . --config Release --target install
 
+For debug:
+
+    cmake .. -DCMAKE_BUILD_TYPE=Debug
+    cmake --build . --config Debug && cp VybeSC_scsynth.scx ~/dev/games/vybe_native/macos/universal/supercollider/Resources/plugins
+
 You may want to manually specify the install location in the first step to point it at your
 SuperCollider extensions directory: add the option `-DCMAKE_INSTALL_PREFIX=/path/to/extensions`.
 
