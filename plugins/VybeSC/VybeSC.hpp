@@ -22,6 +22,9 @@ namespace VybeSC {
 
         // Member variables
         JanetTable *jenv;
+        JanetFunction *my_fn;
+        //JanetCFunction my_fn;
+        JanetFiber *fiber;
     };
 
 } // namespace VybeSC
