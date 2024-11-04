@@ -8,21 +8,80 @@
 #include <dlfcn.h>
 #include <iostream>
 
+#include <jni.h>
+
 static InterfaceTable* ft;
 
 typedef int (*plugin_func)();
 
+// cmake --build . --config Debug && cp VybeSC_scsynth.scx ~/dev/games/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/sonic-pi/prebuilt/macos/universal/supercollider/Resources/plugins/VybeSC_scsynth.scx
+
 namespace VybeSC {
+
+    // https://stackoverflow.com/questions/992836/how-to-access-the-java-method-in-a-c-application
+    // https://github.com/openjdk/jdk/blob/master/test/hotspot/gtest/gtestMain.cpp#L94
+    // https://www.iitk.ac.in/esc101/05Aug/tutorial/native1.1/implementing/method.html
+    void vybe_sc_init_jvm() {
+        JavaVM *vm;
+        JNIEnv *env;
+        JavaVMInitArgs vm_args;
+
+        JavaVMOption* options = new JavaVMOption[1];
+        options[0].optionString = "-Djava.class.path=.";
+        vm_args.nOptions = 1;
+        vm_args.options = options;
+
+        vm_args.version = JNI_VERSION_21;
+        vm_args.ignoreUnrecognized = false;
+
+        // Construct a VM
+        jint res = JNI_CreateJavaVM(&vm, (void **)&env, &vm_args);
+
+        if (res == JNI_OK) {
+            std::cout << "JVM OK \\o/ --=nn\n" << std::flush;
+        }
+        else {
+            std::cout << "\n\nJVM ERRORRRR --=-= " << res << "\n\n\n" << std::flush;
+            return;
+        }
+
+        // Construct a String
+        jstring jstr = env->NewStringUTF("Hello World");
+
+        // First get the class that contains the method you need to call
+        jclass clazz = env->FindClass("java/lang/String");
+
+        // Get the method that you want to call
+        jmethodID to_lower = env->GetMethodID(clazz, "toLowerCase", "()Ljava/lang/String;");
+
+        // Call the method on the object
+        jobject result = env->CallObjectMethod(jstr, to_lower);
+
+        // Get a C-style string
+        const char* str = env->GetStringUTFChars((jstring) result, NULL);
+
+        std::cout << str << std::flush;
+
+        // Clean up
+        env->ReleaseStringUTFChars(jstr, str);
+
+        // Shutdown the VM.
+        vm->DestroyJavaVM();
+    }
 
     VybeSC::VybeSC() {
         mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
         next(1);
 
-        janet_init();
-        jenv = janet_core_env(NULL);
+        vybe_sc_init_jvm();
+
+        // janet_init();
+        // jenv = janet_core_env(NULL);
+
+        // vybe_sc_init_jvm();
 
         // Janet out;
-        // int status = janet_dostring(jenv, "(eval-string (slurp \"/Users/pfeodrippe/dev/vybe/code.edn\"))", "main", &out)
+        // int status = janet_dostring(jenv, "(eval-string (slurp \"/Users/pfeodrippe/dev/vybe/code.edn\"))", "main", &out);
 
         // Janet mainfun;
 
@@ -48,30 +107,30 @@ namespace VybeSC {
         // janet_dostring(jenv, copyOfStr.c_str(), "main", &out);
 
         /////////////////////////// dlopen
-        void* handle = dlopen("/Users/pfeodrippe/dev/vybesc/libttt.dylib", RTLD_NOW);
+        // void* handle = dlopen("/Users/pfeodrippe/dev/vybesc/libttt.dylib", RTLD_NOW);
 
-        if (!handle) {
-            std::cout << "dlopen ERROR --=-=-=-=";
-            dlclose(handle);
-        } else {
-            std::cout << "dlopen GOOD --=-=-=-=";
-        }
+        // if (!handle) {
+        //     std::cout << "dlopen ERROR --=-=-=-=" << std::flush;
+        //     dlclose(handle);
+        // } else {
+        //     std::cout << "dlopen GOOD --=-=-=-=" << std::flush;
+        // }
 
-        plugin_func f = (plugin_func)dlsym(handle, "olha");
-        if (f == NULL) {
-            fprintf(stderr, "Could not find plugin_func: %s\n", dlerror());
-        }
-        printf("Calling plugin\n");
-        int ret = (*f)();
-        printf("Plugin returned %d\n", ret);
-        if (dlclose(handle) != 0) {
-            fprintf(stderr, "Could not close plugin: %s\n", dlerror());
-        }
+        // plugin_func f = (plugin_func)dlsym(handle, "olha");
+        // if (f == NULL) {
+        //     fprintf(stderr, "Could not find plugin_func: %s\n", dlerror());
+        // }
+        // printf("Calling plugin\n");
+        // int ret = (*f)();
+        // printf("Plugin returned %d\n", ret);
+        // if (dlclose(handle) != 0) {
+        //     fprintf(stderr, "Could not close plugin: %s\n", dlerror());
+        // }
 
-        std::ostringstream stringStream;
-        stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" \"" << ret << " " << "\")";
-        std::string copyOfStr = stringStream.str();
-        janet_dostring(jenv, copyOfStr.c_str(), "main", NULL);
+        // std::ostringstream stringStream;
+        // stringStream << "(spit \"/Users/pfeodrippe/dev/vybe/file.txt\" \"" << ret << " " << "\")";
+        // std::string copyOfStr = stringStream.str();
+        // janet_dostring(jenv, copyOfStr.c_str(), "main", NULL);
     }
 
     void VybeSC::next(int nSamples) {

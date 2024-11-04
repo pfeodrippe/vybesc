@@ -61,6 +61,13 @@ if (NOVA_SIMD)
 	include_directories(${SC_PATH}/external_libraries/nova-simd)
 endif()
 
+find_package(JNI)
+
+if (JNI_FOUND)
+  message (STATUS "JNI_INCLUDE_DIRS=${JNI_INCLUDE_DIRS}")
+  message (STATUS "JNI_LIBRARIES=${JNI_LIBRARIES}")
+endif()
+
 ####################################################################################################
 # Begin target VybeSC
 
@@ -86,6 +93,8 @@ sc_add_server_plugin(
     "${VybeSC_sc_files}"
     "${VybeSC_schelp_files}"
   )
+
+  # target_link_libraries(VybeSc PRIVATE JNI::JNI)
 
   # add_executable(
   #   plugins/VybeSC/janet.c
