@@ -22,6 +22,9 @@ static jobject vybe_obj_2;
 static jclass vybe_long_class;
 static jmethodID vybe_init_long;
 static jmethodID vybe_long_value;
+static jclass Clojure;
+static jclass ClojureIFn;
+static jmethodID var_method;
 
 static bool vybe_init_called = false;
 
@@ -41,6 +44,15 @@ jmethodID vybe_method(JNIEnv *env, jclass klass, const char* method_name, const 
         return NULL;
     }
     return method_id;
+}
+
+jobject vybe_eval(const char* eval_str) {
+    jstring read_string_var_name = vybe_jenv->NewStringUTF("clojure.core/read-string");
+    jobject vybe_read_string = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, read_string_var_name);
+    jmethodID invoke_method = vybe_method(vybe_jenv, ClojureIFn, "invoke", "(Ljava/lang/Object;)Ljava/lang/Object;");
+
+    jstring eval_jstr = vybe_jenv->NewStringUTF(eval_str);
+    return vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
 }
 
 // https://stackoverflow.com/questions/992836/how-to-access-the-java-method-in-a-c-application
@@ -109,13 +121,13 @@ void vybe_sc_init_jvm() {
     //vybe_jenv->ReleaseStringUTFChars(jstr, str);
 
     // CUSTOM
-    jclass Clojure = vybe_jenv->FindClass("clojure/java/api/Clojure");
+    Clojure = vybe_jenv->FindClass("clojure/java/api/Clojure");
     jmethodID var_method = vybe_static_method(vybe_jenv, Clojure,
                                               "var", "(Ljava/lang/Object;)Lclojure/lang/IFn;");
     jstring var_name = vybe_jenv->NewStringUTF("clojure.core/+");
     vybe_fn = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, var_name);
 
-    jclass ClojureIFn = vybe_jenv->FindClass("clojure/lang/IFn");
+    ClojureIFn = vybe_jenv->FindClass("clojure/lang/IFn");
     vybe_invoke_method = vybe_method(vybe_jenv, ClojureIFn,
                                      "invoke", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
     if (!vybe_invoke_method) {
@@ -135,6 +147,22 @@ void vybe_sc_init_jvm() {
     //std::cout << "\nRESULT: " << vybe_jenv->GetStringUTFChars((jstring) result, NULL) << "\n" << std::flush;
     //std::cout << "\nRESULT: " << (long)result << "\n" << std::flush;
     std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush;
+
+    /////////////////////// REPL
+    //result = vybe_eval("(+ 1 45)");
+
+    jmethodID invoke_method = vybe_method(vybe_jenv, ClojureIFn, "invoke", "(Ljava/lang/Object;)Ljava/lang/Object;");
+
+    jstring read_string_var_name = vybe_jenv->NewStringUTF("clojure.core/read-string");
+    jobject vybe_read_string = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, read_string_var_name);
+    jstring eval_var_name = vybe_jenv->NewStringUTF("clojure.core/eval");
+    jobject vybe_eval_method = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, eval_var_name);
+
+    jstring eval_jstr = vybe_jenv->NewStringUTF("(+ 1 45)");
+    jobject read_string_ret = vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
+    result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
+
+    std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush;
 }
 
 // Shutdown the VM.
@@ -142,6 +170,8 @@ void vybe_sc_init_jvm() {
 
 
 // cmake --build . --config Debug && cp VybeSC_scsynth.scx ~/dev/games/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/sonic-pi/prebuilt/macos/universal/supercollider/Resources/plugins/VybeSC_scsynth.scx
+
+// static bool ssss = false;
 
 namespace VybeSC {
 
@@ -211,8 +241,11 @@ namespace VybeSC {
 
     void VybeSC::next(int nSamples) {
 
-        //vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method,
-        //                          vybe_obj_1, vybe_obj_2);
+        /* if(!ssss) { */
+        /*     ssss = true; */
+        /*     vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method, */
+        /*                                 vybe_obj_1, vybe_obj_2); */
+        /* } */
 
         //Janet jout;
         //janet_pcall(my_fn, 0, NULL, NULL, &fiber);
