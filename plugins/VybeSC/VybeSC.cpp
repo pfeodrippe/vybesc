@@ -99,7 +99,7 @@ void vybe_sc_init_jvm() {
     jclass Clojure = env->FindClass("clojure/java/api/Clojure");
     jmethodID var_method = vybe_static_method(env, Clojure,
                                               "var", "(Ljava/lang/Object;)Lclojure/lang/IFn;");
-    jstring var_name = env->NewStringUTF("clojure.core/str");
+    jstring var_name = env->NewStringUTF("clojure.core/+");
     jobject plus_fn = env->CallStaticObjectMethod(Clojure, var_method, var_name);
 
     std::cout << "\nPLUS: " << plus_fn << "\n" << std::flush;
@@ -114,13 +114,18 @@ void vybe_sc_init_jvm() {
     /* jdouble result = env->CallDoubleMethod(plus_fn, invoke_method, */
     /*                                        new jvalue{.d = 10.44}, new jvalue{.d = 24.67}); */
 
-    jstring str1 = env->NewStringUTF("look ");
-    jstring str2 = env->NewStringUTF("ahead");
+    jclass longClass = env->FindClass("java/lang/Long");
+    jmethodID initLong = env->GetMethodID(longClass, "<init>", "(J)V");
+    jmethodID longValue = env->GetMethodID(longClass, "longValue", "()J");
+    jobject newLongObj1 = env->NewObject(longClass, initLong, (jlong) 123);
+    jobject newLongObj2 = env->NewObject(longClass, initLong, (jlong) 451);
+    //jlong result = env->CallLongMethod(plus_fn, invoke_method, newLongObj1);
     jobject result = env->CallObjectMethod(plus_fn, invoke_method,
-                                           str1, str2);
+                                           newLongObj1, newLongObj2);
 
-    std::cout << "\nRESULT: " << env->GetStringUTFChars((jstring) result, NULL) << "\n" << std::flush;
-    //std::cout << "\nRESULT: " << result << "\n" << std::flush;
+    //std::cout << "\nRESULT: " << env->GetStringUTFChars((jstring) result, NULL) << "\n" << std::flush;
+    //std::cout << "\nRESULT: " << (long)result << "\n" << std::flush;
+    std::cout << "\nRESULT: " <<  (jlong)env->CallObjectMethod(result, longValue) << "\n" << std::flush;
 }
 
 // Shutdown the VM.
