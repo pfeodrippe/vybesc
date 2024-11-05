@@ -14,6 +14,15 @@ static InterfaceTable* ft;
 
 typedef int (*plugin_func)();
 
+static JNIEnv *vybe_jenv;
+static jobject vybe_fn;
+static jmethodID vybe_invoke_method;
+static jobject vybe_obj_1;
+static jobject vybe_obj_2;
+static jclass vybe_long_class;
+static jmethodID vybe_init_long;
+static jmethodID vybe_long_value;
+
 static bool vybe_init_called = false;
 
 jmethodID vybe_static_method(JNIEnv *env, jclass klass, const char* method_name, const char* method_sig) {
@@ -38,11 +47,15 @@ jmethodID vybe_method(JNIEnv *env, jclass klass, const char* method_name, const 
 // https://github.com/openjdk/jdk/blob/master/test/hotspot/gtest/gtestMain.cpp#L94
 // https://www.iitk.ac.in/esc101/05Aug/tutorial/native1.1/implementing/method.html
 void vybe_sc_init_jvm() {
-    if (vybe_init_called) return;
+    if (vybe_init_called) {
+        jobject result = vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method,
+                                                     vybe_obj_1, vybe_obj_2);
+        std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush;
+        return;
+    }
     vybe_init_called = true;
 
     JavaVM *vm;
-    JNIEnv *env;
     JavaVMInitArgs vm_args;
 
     JavaVMOption* options = new JavaVMOption[10];
@@ -65,7 +78,7 @@ void vybe_sc_init_jvm() {
     vm_args.ignoreUnrecognized = false;
 
     // Construct a VM
-    jint res = JNI_CreateJavaVM(&vm, (void **)&env, &vm_args);
+    jint res = JNI_CreateJavaVM(&vm, (void **)&vybe_jenv, &vm_args);
 
     if (res == JNI_OK) {
         std::cout << "JVM OK \\o/ --=nn\n" << std::flush;
@@ -76,56 +89,52 @@ void vybe_sc_init_jvm() {
     }
 
     // Construct a String
-    //jstring jstr = env->NewStringUTF("Hello World");
+    //jstring jstr = vybe_jenv->NewStringUTF("Hello World");
 
     // First get the class that contains the method you need to call
-    //jclass clazz = env->FindClass("java/lang/String");
+    //jclass clazz = vybe_jenv->FindClass("java/lang/String");
 
     // Get the method that you want to call
-    //jmethodID to_lower = env->GetMethodID(clazz, "toLowerCase", "()Ljava/lang/String;");
+    //jmethodID to_lower = vybe_jenv->GetMethodID(clazz, "toLowerCase", "()Ljava/lang/String;");
 
     // Call the method on the object
-    //jobject result = env->CallObjectMethod(jstr, to_lower);
+    //jobject result = vybe_jenv->CallObjectMethod(jstr, to_lower);
 
     // Get a C-style string
-    //const char* str = env->GetStringUTFChars((jstring) result, NULL);
+    //const char* str = vybe_jenv->GetStringUTFChars((jstring) result, NULL);
 
     // std::cout << str << std::flush;
 
     // Clean up
-    //env->ReleaseStringUTFChars(jstr, str);
+    //vybe_jenv->ReleaseStringUTFChars(jstr, str);
 
     // CUSTOM
-    jclass Clojure = env->FindClass("clojure/java/api/Clojure");
-    jmethodID var_method = vybe_static_method(env, Clojure,
+    jclass Clojure = vybe_jenv->FindClass("clojure/java/api/Clojure");
+    jmethodID var_method = vybe_static_method(vybe_jenv, Clojure,
                                               "var", "(Ljava/lang/Object;)Lclojure/lang/IFn;");
-    jstring var_name = env->NewStringUTF("clojure.core/+");
-    jobject plus_fn = env->CallStaticObjectMethod(Clojure, var_method, var_name);
+    jstring var_name = vybe_jenv->NewStringUTF("clojure.core/+");
+    vybe_fn = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, var_name);
 
-    std::cout << "\nPLUS: " << plus_fn << "\n" << std::flush;
-
-    jclass ClojureIFn = env->FindClass("clojure/lang/IFn");
-    jmethodID invoke_method = vybe_method(env, ClojureIFn,
-                                          "invoke", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
-    if (!invoke_method) {
-        std::cout << "\nINVOKE ERROR: " << invoke_method << "\n" << std::flush;
+    jclass ClojureIFn = vybe_jenv->FindClass("clojure/lang/IFn");
+    vybe_invoke_method = vybe_method(vybe_jenv, ClojureIFn,
+                                     "invoke", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;");
+    if (!vybe_invoke_method) {
+        std::cout << "\nINVOKE ERROR: " << vybe_invoke_method << "\n" << std::flush;
         return;
     }
-    /* jdouble result = env->CallDoubleMethod(plus_fn, invoke_method, */
-    /*                                        new jvalue{.d = 10.44}, new jvalue{.d = 24.67}); */
 
-    jclass longClass = env->FindClass("java/lang/Long");
-    jmethodID initLong = env->GetMethodID(longClass, "<init>", "(J)V");
-    jmethodID longValue = env->GetMethodID(longClass, "longValue", "()J");
-    jobject newLongObj1 = env->NewObject(longClass, initLong, (jlong) 123);
-    jobject newLongObj2 = env->NewObject(longClass, initLong, (jlong) 451);
-    //jlong result = env->CallLongMethod(plus_fn, invoke_method, newLongObj1);
-    jobject result = env->CallObjectMethod(plus_fn, invoke_method,
-                                           newLongObj1, newLongObj2);
+    vybe_long_class = vybe_jenv->FindClass("java/lang/Long");
+    vybe_init_long = vybe_jenv->GetMethodID(vybe_long_class, "<init>", "(J)V");
+    vybe_long_value = vybe_jenv->GetMethodID(vybe_long_class, "longValue", "()J");
+    vybe_obj_1 = vybe_jenv->NewObject(vybe_long_class, vybe_init_long, (jlong) 123);
+    vybe_obj_2 = vybe_jenv->NewObject(vybe_long_class, vybe_init_long, (jlong) 451);
+    //jlong result = vybe_jenv->CallLongMethod(plus_fn, invoke_method, newLongObj1);
+    jobject result = vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method,
+                                                 vybe_obj_1, vybe_obj_2);
 
-    //std::cout << "\nRESULT: " << env->GetStringUTFChars((jstring) result, NULL) << "\n" << std::flush;
+    //std::cout << "\nRESULT: " << vybe_jenv->GetStringUTFChars((jstring) result, NULL) << "\n" << std::flush;
     //std::cout << "\nRESULT: " << (long)result << "\n" << std::flush;
-    std::cout << "\nRESULT: " <<  (jlong)env->CallObjectMethod(result, longValue) << "\n" << std::flush;
+    std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush;
 }
 
 // Shutdown the VM.
@@ -201,6 +210,9 @@ namespace VybeSC {
     }
 
     void VybeSC::next(int nSamples) {
+
+        //vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method,
+        //                          vybe_obj_1, vybe_obj_2);
 
         //Janet jout;
         //janet_pcall(my_fn, 0, NULL, NULL, &fiber);
