@@ -60,9 +60,24 @@ jobject vybe_eval(const char* eval_str) {
 // https://www.iitk.ac.in/esc101/05Aug/tutorial/native1.1/implementing/method.html
 void vybe_sc_init_jvm() {
     if (vybe_init_called) {
-        jobject result = vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method,
-                                                     vybe_obj_1, vybe_obj_2);
-        std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush;
+        /////////////////////// NREPL
+        jmethodID invoke_method = vybe_method(vybe_jenv, ClojureIFn, "invoke", "(Ljava/lang/Object;)Ljava/lang/Object;");
+
+        jstring read_string_var_name = vybe_jenv->NewStringUTF("clojure.core/read-string");
+        jobject vybe_read_string = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, read_string_var_name);
+        jstring eval_var_name = vybe_jenv->NewStringUTF("clojure.core/eval");
+        jobject vybe_eval_method = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, eval_var_name);
+
+        jstring eval_jstr = vybe_jenv->NewStringUTF("((requiring-resolve 'vybe.audio/-plugin))");
+        jobject read_string_ret = vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
+        jobject result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
+
+        std::cout << "\nRESULT (clj): " << result << "\n" << std::flush;
+
+        //////////////////////// MISC
+        /* result = vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method, */
+        /*                                      vybe_obj_1, vybe_obj_2); */
+        /* std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush; */
         return;
     }
     vybe_init_called = true;
@@ -122,8 +137,8 @@ void vybe_sc_init_jvm() {
 
     // CUSTOM
     Clojure = vybe_jenv->FindClass("clojure/java/api/Clojure");
-    jmethodID var_method = vybe_static_method(vybe_jenv, Clojure,
-                                              "var", "(Ljava/lang/Object;)Lclojure/lang/IFn;");
+    var_method = vybe_static_method(vybe_jenv, Clojure,
+                                    "var", "(Ljava/lang/Object;)Lclojure/lang/IFn;");
     jstring var_name = vybe_jenv->NewStringUTF("clojure.core/+");
     vybe_fn = vybe_jenv->CallStaticObjectMethod(Clojure, var_method, var_name);
 
@@ -148,7 +163,7 @@ void vybe_sc_init_jvm() {
     //std::cout << "\nRESULT: " << (long)result << "\n" << std::flush;
     std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush;
 
-    /////////////////////// REPL
+    /////////////////////// EVAL
     //result = vybe_eval("(+ 1 45)");
 
     jmethodID invoke_method = vybe_method(vybe_jenv, ClojureIFn, "invoke", "(Ljava/lang/Object;)Ljava/lang/Object;");
@@ -163,6 +178,11 @@ void vybe_sc_init_jvm() {
     result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
 
     std::cout << "\nRESULT: " <<  (jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value) << "\n" << std::flush;
+
+    /////////////////////// NREPL
+    eval_jstr = vybe_jenv->NewStringUTF("((requiring-resolve 'vybe.raylib/start-nrepl!))");
+    read_string_ret = vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
+    result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
 }
 
 // Shutdown the VM.
