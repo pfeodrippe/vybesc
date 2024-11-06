@@ -20,11 +20,11 @@ namespace VybeSC {
         // Calc function
         void next(int nSamples);
 
+        // Other functions
+        void init_jvm();
+
         // Member variables
-        JanetTable *jenv;
-        JanetFunction *my_fn;
-        //JanetCFunction my_fn;
-        JanetFiber *fiber;
+        float* m_float_array;
     };
 
 } // namespace VybeSC
