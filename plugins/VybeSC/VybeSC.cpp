@@ -74,6 +74,11 @@ void vybe_sc_init_jvm() {
 
         std::cout << "\nRESULT (clj): " << result << "\n" << std::flush;
 
+        long* vybe_p = (long*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
+        vybe_p[0] -= 100;
+
+        std::cout << "\nRESULT (clj vybe_p): " << vybe_p[0] << "\n" << std::flush;
+
         //////////////////////// MISC
         /* result = vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method, */
         /*                                      vybe_obj_1, vybe_obj_2); */
