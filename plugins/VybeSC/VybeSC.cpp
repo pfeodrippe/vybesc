@@ -55,6 +55,8 @@ jobject vybe_eval(const char* eval_str) {
     return vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
 }
 
+
+static float* vybe_float_array;
 // https://stackoverflow.com/questions/992836/how-to-access-the-java-method-in-a-c-application
 // https://github.com/openjdk/jdk/blob/master/test/hotspot/gtest/gtestMain.cpp#L94
 // https://www.iitk.ac.in/esc101/05Aug/tutorial/native1.1/implementing/method.html
@@ -74,10 +76,10 @@ void vybe_sc_init_jvm() {
 
         std::cout << "\nRESULT (clj): " << result << "\n" << std::flush;
 
-        long* vybe_p = (long*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
-        vybe_p[0] -= 100;
+        vybe_float_array = (float*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
+        //vybe_float_array[0] -= 100;
 
-        std::cout << "\nRESULT (clj vybe_p): " << vybe_p[0] << "\n" << std::flush;
+        //std::cout << "\nRESULT (clj vybe_p): " << vybe_p[0] << "\n" << std::flush;
 
         //////////////////////// MISC
         /* result = vybe_jenv->CallObjectMethod(vybe_fn, vybe_invoke_method, */
@@ -188,6 +190,12 @@ void vybe_sc_init_jvm() {
     eval_jstr = vybe_jenv->NewStringUTF("((requiring-resolve 'vybe.raylib/start-nrepl!))");
     read_string_ret = vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
     result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
+
+    /////////////////////// Vybe float array
+    eval_jstr = vybe_jenv->NewStringUTF("((requiring-resolve 'vybe.audio/-plugin))");
+    read_string_ret = vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
+    result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
+    vybe_float_array = (float*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
 }
 
 // Shutdown the VM.
@@ -201,10 +209,10 @@ void vybe_sc_init_jvm() {
 namespace VybeSC {
 
     VybeSC::VybeSC() {
+        vybe_sc_init_jvm();
+
         mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
         next(1);
-
-        vybe_sc_init_jvm();
 
         // janet_init();
         // jenv = janet_core_env(NULL);
@@ -284,7 +292,7 @@ namespace VybeSC {
         const float* input = in(0);
 
         // Control rate parameter: gain.
-        const float gain = 1.0f - in0(1);
+        const float gain = (1.0f - in0(1)) * vybe_float_array[0];
         //const float gain = myconst - in0(1);
 
         // Output buffer
