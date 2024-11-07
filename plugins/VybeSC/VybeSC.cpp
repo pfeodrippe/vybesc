@@ -281,14 +281,18 @@ namespace VybeSC {
         // Output buffer
         float* outbuf = out(0);
 
-        if (nSamples + m_buffer_idx - 1 >= m_buffer.len) {
-            m_buffer_idx = 0;
+        if (nSamples + m_buffer_current_pos - 1 >= m_buffer.len) {
+            m_buffer_current_pos = 0;
         }
 
         // simple gain function
         for (int i = 0; i < nSamples; ++i) {
             outbuf[i] = input[i] * gain;
-            m_buffer.arr[m_buffer_idx++] = outbuf[i];
+
+            m_buffer.arr[m_buffer_current_pos] = outbuf[i];
+            m_buffer.timeline[m_buffer_current_pos] = m_buffer_global_pos;
+            m_buffer_current_pos++;
+            m_buffer_global_pos++;
         }
     }
 
