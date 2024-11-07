@@ -83,7 +83,7 @@ namespace VybeSC {
 
             std::cout << "\nRESULT (clj): " << result << "\n" << std::flush;
 
-            m_float_array = (float*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
+            m_buffer = *(VybeSlice*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
             //vybe_float_array[0] -= 100;
 
             //std::cout << "\nRESULT (clj vybe_p): " << vybe_p[0] << "\n" << std::flush;
@@ -202,7 +202,7 @@ namespace VybeSC {
         eval_jstr = vybe_jenv->NewStringUTF("((requiring-resolve 'vybe.audio/-plugin))");
         read_string_ret = vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
         result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
-        m_float_array = (float*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
+        m_buffer = *(VybeSlice*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
     }
 
     VybeSC::VybeSC() {
@@ -281,10 +281,14 @@ namespace VybeSC {
         // Output buffer
         float* outbuf = out(0);
 
+        if (nSamples + m_buffer_idx - 1 >= m_buffer.len) {
+            m_buffer_idx = 0;
+        }
+
         // simple gain function
         for (int i = 0; i < nSamples; ++i) {
             outbuf[i] = input[i] * gain;
-            m_float_array[i] = outbuf[i];
+            m_buffer.arr[m_buffer_idx++] = outbuf[i];
         }
     }
 
