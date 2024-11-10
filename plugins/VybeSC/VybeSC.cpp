@@ -206,7 +206,7 @@ namespace VybeSC {
     }
 
     VybeSC::VybeSC() {
-        this->init_jvm();
+        //this->init_jvm();
 
         mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
         next(1);
