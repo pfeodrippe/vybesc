@@ -76,6 +76,7 @@ include_directories(c)
 set(VybeSC_cpp_files
     plugins/VybeSC/VybeSC.cpp
     plugins/VybeSC/VybeSC.hpp
+    plugins/VybeSC/jshm.hpp
     c/janet.c
     c/janet.h
 )

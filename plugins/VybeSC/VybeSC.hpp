@@ -8,8 +8,8 @@
 
 struct VybeSlice {
     long len;
-    float* arr;
-    long* timeline;
+    //float* arr;
+    //long* timeline;
 };
 
 namespace VybeSC {
@@ -22,6 +22,8 @@ namespace VybeSC {
         // Destructor
         // ~VybeSC();
 
+        // void set_shared_memory_path(sc_msg_iter *args);
+
     private:
         // Calc function
         void next(int nSamples);
@@ -30,7 +32,7 @@ namespace VybeSC {
         void init_jvm();
 
         // Member variables
-        VybeSlice m_buffer;
+        VybeSlice* m_buffer;
         long m_buffer_current_pos = 0;
         long m_buffer_global_pos = 0;
     };

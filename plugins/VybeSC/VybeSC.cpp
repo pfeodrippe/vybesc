@@ -3,11 +3,13 @@
 
 #include "SC_PlugIn.hpp"
 #include "VybeSC.hpp"
+
 #include <janet.h>
 #include <sstream>
 #include <dlfcn.h>
 #include <iostream>
 
+#include "jshm.hpp"
 #include <jni.h>
 
 static InterfaceTable* ft;
@@ -83,7 +85,7 @@ namespace VybeSC {
 
             std::cout << "\nRESULT (clj): " << result << "\n" << std::flush;
 
-            m_buffer = *(VybeSlice*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
+            m_buffer = (VybeSlice*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
             //vybe_float_array[0] -= 100;
 
             //std::cout << "\nRESULT (clj vybe_p): " << vybe_p[0] << "\n" << std::flush;
@@ -202,11 +204,14 @@ namespace VybeSC {
         eval_jstr = vybe_jenv->NewStringUTF("((requiring-resolve 'vybe.audio/-plugin))");
         read_string_ret = vybe_jenv->CallObjectMethod(vybe_read_string, invoke_method, eval_jstr);
         result = vybe_jenv->CallObjectMethod(vybe_eval_method, invoke_method, read_string_ret);
-        m_buffer = *(VybeSlice*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
+        m_buffer = (VybeSlice*)(void*)(jlong)vybe_jenv->CallObjectMethod(result, vybe_long_value);
     }
 
     VybeSC::VybeSC() {
         //this->init_jvm();
+
+        //m_buffer = (VybeSlice*)jshm::shared_memory::open("/tmp_vybe", 1024)->address();
+        //std::cout << (long)m_buffer << " - " << m_buffer->len << "\n" << std::flush;
 
         mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
         next(1);
@@ -295,11 +300,18 @@ namespace VybeSC {
             // m_buffer_global_pos++;
         }
     }
-
 } // namespace VybeSC
+
+void VybeSC_set_shared_memory_path(VybeSC::VybeSC *unit, sc_msg_iter *args) {
+    std::cout << "MEMORY_PATH: " << args->gets() << "\n" << std::flush;
+}
 
 PluginLoad(VybeSCUGens) {
     // Plugin magic
     ft = inTable;
     registerUnit<VybeSC::VybeSC>(ft, "VybeSC", false);
+
+    // We defined a unit command here, an instance method that can be called from the client
+    // by using /u_cmd
+    DefineUnitCmd("VybeSC", "/set_shared_memory_path", (UnitCmdFunc)&VybeSC_set_shared_memory_path);
 }
