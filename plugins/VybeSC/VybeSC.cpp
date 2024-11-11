@@ -112,12 +112,21 @@ void VybeSC_set_shared_memory_path(VybeSC::VybeSC *unit, sc_msg_iter *args) {
     std::cout << "MEMORY_PATH: " << args->gets() << "\n" << std::flush;
 }
 
+// Check DemoUGens.cpp in the supercollider repo.
+void VybeSC_plugin_cmd(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+    Print("->cmdDemoFunc %d\n", args->geti());
+    Print("->cmdDemoFunc %d\n", args->geti());
+}
+
 PluginLoad(VybeSCUGens) {
     // Plugin magic
     ft = inTable;
     registerUnit<VybeSC::VybeSC>(ft, "VybeSC", false);
 
-    // We defined a unit command here, an instance method that can be called from the client
-    // by using /u_cmd
+    // Plugin command, use with `/cmd`.
+    DefinePlugInCmd("/vybe_cmd", VybeSC_plugin_cmd, NULL);
+
+    // We define a unit command here, an instance method that can be called from the client
+    // by using `/u_cmd`.
     DefineUnitCmd("VybeSC", "/set_shared_memory_path", (UnitCmdFunc)&VybeSC_set_shared_memory_path);
 }
