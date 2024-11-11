@@ -29,7 +29,6 @@ namespace VybeSC {
         void next(int nSamples);
 
         // Other functions
-        void init_jvm();
 
         // Member variables
         VybeSlice* m_buffer;
