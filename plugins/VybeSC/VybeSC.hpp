@@ -8,8 +8,8 @@
 
 struct VybeSlice {
     long len;
-    //float* arr;
-    //long* timeline;
+    float arr[88000];
+    long timeline[88000];
 };
 
 namespace VybeSC {
