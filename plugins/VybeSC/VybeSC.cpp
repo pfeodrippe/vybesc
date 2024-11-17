@@ -18,6 +18,8 @@ static InterfaceTable* ft;
 static VybeSlice* vybe_slice;
 
 static void* vybe_function_handle;
+// FIXME Put this per unit instance.
+static vybe_plugin_func m_function_pointer;
 
 namespace VybeSC {
 
@@ -37,14 +39,10 @@ namespace VybeSC {
             goto initialize;
         }
 
-        m_function_pointer = (plugin_func)dlsym(vybe_function_handle, "olha");
         if (m_function_pointer == NULL) {
-            fprintf(stderr, "Could not find plugin_func: %s\n", dlerror());
+            fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
             goto initialize;
         }
-        printf("Calling plugin\n");
-        ret = (*m_function_pointer)();
-        printf("Plugin returned %f\n", ret);
         // if (dlclose(vybe_function_handle) != 0) {
         //     fprintf(stderr, "Could not close plugin: %s\n", dlerror());
         // }
@@ -60,7 +58,7 @@ namespace VybeSC {
         const float* input = in(0);
 
         // Control rate parameter: gain.
-        const float gain = 1.0f - in0(1) * (*m_function_pointer)();
+        const float gain = (*m_function_pointer)(in0(1));
 
         // Output buffer
         float* outbuf = out(0);
@@ -94,6 +92,18 @@ void VybeSC_plugin_cmd(World* inWorld, void* inUserData, struct sc_msg_iter* arg
 
 void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
     vybe_function_handle = dlopen(args->gets(), RTLD_NOW);
+
+    if (!vybe_function_handle) {
+        std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
+        dlclose(vybe_function_handle);
+        return;
+    }
+
+    m_function_pointer = (vybe_plugin_func)dlsym(vybe_function_handle, args->gets());
+    if (m_function_pointer == NULL) {
+        fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
+        return;
+    }
 }
 
 PluginLoad(VybeSCUGens) {
