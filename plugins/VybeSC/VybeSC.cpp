@@ -13,43 +13,41 @@
 
 static InterfaceTable* ft;
 
-typedef int (*plugin_func)();
-
 // cmake --build . --config Debug && cp VybeSC_scsynth.scx ~/dev/games/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/sonic-pi/prebuilt/macos/universal/supercollider/Resources/plugins/VybeSC_scsynth.scx
 
 static VybeSlice* vybe_slice;
 
+static void* vybe_function_handle;
+
 namespace VybeSC {
 
     VybeSC::VybeSC() {
-        // Read
-        m_buffer = vybe_slice;
-        std::cout << (long)m_buffer << " - " << m_buffer->len << " - " << m_buffer->arr[0] << "\n" << std::flush;
+        // Shared memory.
+        // m_buffer = vybe_slice;
+        // std::cout << (long)m_buffer << " - " << m_buffer->len << " - " << m_buffer->arr[0] << "\n" << std::flush;
 
         // Load library.
-        void* handle = dlopen("/Users/pfeodrippe/dev/vybe/libmy.dylib", RTLD_NOW);
-        int ret;
-        plugin_func f;
+        float ret;
 
         std::cout << "Constructor arg " << in0(1) << "\n" << std::flush;
 
-        if (!handle) {
+        if (!vybe_function_handle) {
             std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
-            dlclose(handle);
+            dlclose(vybe_function_handle);
             goto initialize;
         }
 
-        f = (plugin_func)dlsym(handle, "olha");
-        if (f == NULL) {
+        m_function_pointer = (plugin_func)dlsym(vybe_function_handle, "olha");
+        if (m_function_pointer == NULL) {
             fprintf(stderr, "Could not find plugin_func: %s\n", dlerror());
             goto initialize;
         }
         printf("Calling plugin\n");
-        ret = (*f)();
-        printf("Plugin returned %d\n", ret);
-        if (dlclose(handle) != 0) {
-            fprintf(stderr, "Could not close plugin: %s\n", dlerror());
-        }
+        ret = (*m_function_pointer)();
+        printf("Plugin returned %f\n", ret);
+        // if (dlclose(vybe_function_handle) != 0) {
+        //     fprintf(stderr, "Could not close plugin: %s\n", dlerror());
+        // }
 
         // Initialize.
     initialize:
@@ -62,23 +60,23 @@ namespace VybeSC {
         const float* input = in(0);
 
         // Control rate parameter: gain.
-        const float gain = 1.0f - in0(1);
+        const float gain = 1.0f - in0(1) * (*m_function_pointer)();
 
         // Output buffer
         float* outbuf = out(0);
 
-        if (nSamples + m_buffer_current_pos - 1 >= m_buffer->len) {
-            m_buffer_current_pos = 0;
-        }
+        // if (nSamples + m_buffer_current_pos - 1 >= m_buffer->len) {
+        //     m_buffer_current_pos = 0;
+        // }
 
         // simple gain function
         for (int i = 0; i < nSamples; ++i) {
             outbuf[i] = input[i] * gain;
 
-            m_buffer->arr[m_buffer_current_pos] = outbuf[i];
-            m_buffer->timeline[m_buffer_current_pos] = m_buffer_global_pos;
-            m_buffer_current_pos++;
-            m_buffer_global_pos++;
+            // m_buffer->arr[m_buffer_current_pos] = outbuf[i];
+            // m_buffer->timeline[m_buffer_current_pos] = m_buffer_global_pos;
+            // m_buffer_current_pos++;
+            // m_buffer_global_pos++;
         }
     }
 } // namespace VybeSC
@@ -94,6 +92,10 @@ void VybeSC_plugin_cmd(World* inWorld, void* inUserData, struct sc_msg_iter* arg
     vybe_slice = (VybeSlice*)jshm::shared_memory::open(args->gets(), 1024 * 1024 * 128)->address();
 }
 
+void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+    vybe_function_handle = dlopen(args->gets(), RTLD_NOW);
+}
+
 PluginLoad(VybeSCUGens) {
     // Plugin magic
     ft = inTable;
@@ -101,6 +103,7 @@ PluginLoad(VybeSCUGens) {
 
     // Plugin command, use with `/cmd`.
     DefinePlugInCmd("/vybe_cmd", VybeSC_plugin_cmd, NULL);
+    DefinePlugInCmd("/vybe_dlopen", VybeSC_dlopen, NULL);
 
     // We define a unit command here, an instance method that can be called from the client
     // by using `/u_cmd`.

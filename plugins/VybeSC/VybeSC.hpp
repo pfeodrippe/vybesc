@@ -8,9 +8,11 @@
 
 struct VybeSlice {
     long len;
-    float arr[88000];
-    long timeline[88000];
+    float arr[4400];
+    long timeline[4400];
 };
+
+typedef float (*plugin_func)();
 
 namespace VybeSC {
 
@@ -34,6 +36,8 @@ namespace VybeSC {
         VybeSlice* m_buffer;
         long m_buffer_current_pos = 0;
         long m_buffer_global_pos = 0;
+
+        plugin_func m_function_pointer;
     };
 
 } // namespace VybeSC
