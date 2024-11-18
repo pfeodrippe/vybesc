@@ -58,7 +58,7 @@ namespace VybeSC {
         const float* input = in(0);
 
         // Control rate parameter: gain.
-        const float gain = (*m_function_pointer)(in0(1));
+        const float gain = in0(1);
 
         // Output buffer
         float* outbuf = out(0);
@@ -68,14 +68,16 @@ namespace VybeSC {
         // }
 
         // simple gain function
-        for (int i = 0; i < nSamples; ++i) {
-            outbuf[i] = input[i] * gain;
+        // for (int i = 0; i < nSamples; ++i) {
+        //     outbuf[i] = input[i] * gain;
 
-            // m_buffer->arr[m_buffer_current_pos] = outbuf[i];
-            // m_buffer->timeline[m_buffer_current_pos] = m_buffer_global_pos;
-            // m_buffer_current_pos++;
-            // m_buffer_global_pos++;
-        }
+        //     // m_buffer->arr[m_buffer_current_pos] = outbuf[i];
+        //     // m_buffer->timeline[m_buffer_current_pos] = m_buffer_global_pos;
+        //     // m_buffer_current_pos++;
+        //     // m_buffer_global_pos++;
+        // }
+
+        (*m_function_pointer)(outbuf, input, nSamples);
     }
 } // namespace VybeSC
 
