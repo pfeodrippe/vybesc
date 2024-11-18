@@ -77,7 +77,7 @@ namespace VybeSC {
         //     // m_buffer_global_pos++;
         // }
 
-        (*m_function_pointer)(outbuf, input, nSamples);
+        (*m_function_pointer)(this, nSamples);
     }
 } // namespace VybeSC
 

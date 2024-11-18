@@ -12,7 +12,7 @@ struct VybeSlice {
     long timeline[4400];
 };
 
-typedef void (*vybe_plugin_func)(float*, const float*, int);
+typedef void (*vybe_plugin_func)(Unit*, int);
 
 namespace VybeSC {
 
