@@ -16,52 +16,59 @@ static InterfaceTable* ft;
 // cmake --build . --config Debug && cp VybeSC_scsynth.scx ~/dev/games/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/sonic-pi/prebuilt/macos/universal/supercollider/Resources/plugins/VybeSC_scsynth.scx
 
 static VybeSlice* vybe_slice;
-
+static VybeHooks vybe_hooks;
 static void* vybe_function_handle;
-// FIXME Put this per unit instance.
-static vybe_plugin_func m_function_pointer;
+
+static VybeAllocator vybe_allocator;
 
 namespace VybeSC {
 
     VybeSC::VybeSC() {
+        (vybe_hooks.ctor)(this, &vybe_allocator);
+
+        mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
+        next(1);
+
         // Shared memory.
         // m_buffer = vybe_slice;
         // std::cout << (long)m_buffer << " - " << m_buffer->len << " - " << m_buffer->arr[0] << "\n" << std::flush;
 
         // Load library.
-        float ret;
+        // float ret;
 
-        std::cout << "Constructor arg " << in0(1) << "\n" << std::flush;
+        // std::cout << "Constructor arg " << in0(1) << "\n" << std::flush;
 
-        if (!vybe_function_handle) {
-            std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
-            dlclose(vybe_function_handle);
-            goto initialize;
-        }
+        // if (!vybe_function_handle) {
+        //     std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
+        //     dlclose(vybe_function_handle);
+        //     goto initialize;
+        // }
 
-        if (m_function_pointer == NULL) {
-            fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
-            goto initialize;
-        }
+        // if (m_function_pointer == NULL) {
+        //     fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
+        //     goto initialize;
+        // }
         // if (dlclose(vybe_function_handle) != 0) {
         //     fprintf(stderr, "Could not close plugin: %s\n", dlerror());
         // }
 
         // Initialize.
-    initialize:
-        mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
-        next(1);
+    // initialize:
+    //     mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
+    //     next(1);
     }
 
     void VybeSC::next(int nSamples) {
+        (vybe_hooks.next)(this, nSamples);
+
         // Audio rate input
-        const float* input = in(0);
+        // const float* input = in(0);
 
-        // Control rate parameter: gain.
-        const float gain = in0(1);
+        // // Control rate parameter: gain.
+        // const float gain = in0(1);
 
-        // Output buffer
-        float* outbuf = out(0);
+        // // Output buffer
+        // float* outbuf = out(0);
 
         // if (nSamples + m_buffer_current_pos - 1 >= m_buffer->len) {
         //     m_buffer_current_pos = 0;
@@ -77,7 +84,7 @@ namespace VybeSC {
         //     // m_buffer_global_pos++;
         // }
 
-        (*m_function_pointer)(this, nSamples);
+        //(*m_function_pointer)(this, nSamples);
     }
 } // namespace VybeSC
 
@@ -93,6 +100,10 @@ void VybeSC_plugin_cmd(World* inWorld, void* inUserData, struct sc_msg_iter* arg
 }
 
 void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+    // Args are
+    //   - lib location (string)
+    //   - load function name (string)
+
     vybe_function_handle = dlopen(args->gets(), RTLD_NOW);
 
     if (!vybe_function_handle) {
@@ -101,11 +112,27 @@ void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, v
         return;
     }
 
-    m_function_pointer = (vybe_plugin_func)dlsym(vybe_function_handle, args->gets());
-    if (m_function_pointer == NULL) {
-        fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
+    // Load plugin.
+    vybe_allocator = {
+        .alloc = ft->fRTAlloc,
+        .free  = ft->fRTFree
+    };
+
+    auto vybe_plugin_load = (VybeHooks (*)(VybeAllocator*))dlsym(vybe_function_handle, args->gets());
+    if (vybe_plugin_load == NULL) {
+        fprintf(stderr, "Could not find vybe_plugin_load: %s\n", dlerror());
         return;
     }
+    vybe_hooks = (*vybe_plugin_load)(&vybe_allocator);
+
+    // TODO Load dtor
+
+    // Load next.
+    // m_function_pointer = (vybe_plugin_func)dlsym(vybe_function_handle, args->gets());
+    // if (m_function_pointer == NULL) {
+    //     fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
+    //     return;
+    // }
 }
 
 PluginLoad(VybeSCUGens) {

@@ -12,6 +12,19 @@ struct VybeSlice {
     long timeline[4400];
 };
 
+// Real-time allocation provided by SC.
+struct VybeAllocator {
+    void* (*alloc)(World* inWorld, size_t inSize);
+    void (*free)(World* inWorld, void* inPtr);
+};
+
+// Runtime hooks for the dynamic lib.
+struct VybeHooks {
+    void (*ctor)(Unit*, VybeAllocator*);
+    void (*dtor)(Unit*, VybeAllocator*);
+    void (*next)(Unit*, int);
+};
+
 typedef void (*vybe_plugin_func)(Unit*, int);
 
 namespace VybeSC {
