@@ -24,10 +24,14 @@ static VybeAllocator vybe_allocator;
 namespace VybeSC {
 
     VybeSC::VybeSC() {
+        if (vybe_hooks.ctor == NULL) {
+            std::cout << "WARN: vybe_hooks is not initialized yet!! VybeSC will be a noop until then\n" << std::flush;
+            return;
+        }
         (vybe_hooks.ctor)(this, &vybe_allocator);
 
-        mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
-        next(1);
+        //mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
+        //next(1);
 
         // Shared memory.
         // m_buffer = vybe_slice;
@@ -58,34 +62,34 @@ namespace VybeSC {
     //     next(1);
     }
 
-    void VybeSC::next(int nSamples) {
-        (vybe_hooks.next)(this, nSamples);
+    // void VybeSC::next(int nSamples) {
+    //     (vybe_hooks.next)(this, nSamples);
 
-        // Audio rate input
-        // const float* input = in(0);
+    //     // Audio rate input
+    //     // const float* input = in(0);
 
-        // // Control rate parameter: gain.
-        // const float gain = in0(1);
+    //     // // Control rate parameter: gain.
+    //     // const float gain = in0(1);
 
-        // // Output buffer
-        // float* outbuf = out(0);
+    //     // // Output buffer
+    //     // float* outbuf = out(0);
 
-        // if (nSamples + m_buffer_current_pos - 1 >= m_buffer->len) {
-        //     m_buffer_current_pos = 0;
-        // }
+    //     // if (nSamples + m_buffer_current_pos - 1 >= m_buffer->len) {
+    //     //     m_buffer_current_pos = 0;
+    //     // }
 
-        // simple gain function
-        // for (int i = 0; i < nSamples; ++i) {
-        //     outbuf[i] = input[i] * gain;
+    //     // simple gain function
+    //     // for (int i = 0; i < nSamples; ++i) {
+    //     //     outbuf[i] = input[i] * gain;
 
-        //     // m_buffer->arr[m_buffer_current_pos] = outbuf[i];
-        //     // m_buffer->timeline[m_buffer_current_pos] = m_buffer_global_pos;
-        //     // m_buffer_current_pos++;
-        //     // m_buffer_global_pos++;
-        // }
+    //     //     // m_buffer->arr[m_buffer_current_pos] = outbuf[i];
+    //     //     // m_buffer->timeline[m_buffer_current_pos] = m_buffer_global_pos;
+    //     //     // m_buffer_current_pos++;
+    //     //     // m_buffer_global_pos++;
+    //     // }
 
-        //(*m_function_pointer)(this, nSamples);
-    }
+    //     //(*m_function_pointer)(this, nSamples);
+    // }
 } // namespace VybeSC
 
 // void VybeSC_set_shared_memory_path(VybeSC::VybeSC *unit, sc_msg_iter *args) {
@@ -120,7 +124,7 @@ void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, v
 
     auto vybe_plugin_load = (VybeHooks (*)(VybeAllocator*))dlsym(vybe_function_handle, args->gets());
     if (vybe_plugin_load == NULL) {
-        fprintf(stderr, "Could not find vybe_plugin_load: %s\n", dlerror());
+        std::cout << "Could not find vybe_plugin_load\n" << std::flush;
         return;
     }
     vybe_hooks = (*vybe_plugin_load)(&vybe_allocator);

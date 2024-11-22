@@ -41,7 +41,7 @@ namespace VybeSC {
 
     private:
         // Calc function
-        void next(int nSamples);
+        //void next(int nSamples);
 
         // Other functions
 
