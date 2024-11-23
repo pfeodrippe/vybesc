@@ -30,66 +30,20 @@ namespace VybeSC {
         }
         (vybe_hooks.ctor)(this, &vybe_allocator);
 
-        //mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
-        //next(1);
-
-        // Shared memory.
-        // m_buffer = vybe_slice;
-        // std::cout << (long)m_buffer << " - " << m_buffer->len << " - " << m_buffer->arr[0] << "\n" << std::flush;
-
-        // Load library.
-        // float ret;
-
-        // std::cout << "Constructor arg " << in0(1) << "\n" << std::flush;
-
-        // if (!vybe_function_handle) {
-        //     std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
-        //     dlclose(vybe_function_handle);
-        //     goto initialize;
-        // }
-
-        // if (m_function_pointer == NULL) {
-        //     fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
-        //     goto initialize;
-        // }
-        // if (dlclose(vybe_function_handle) != 0) {
-        //     fprintf(stderr, "Could not close plugin: %s\n", dlerror());
-        // }
-
-        // Initialize.
-    // initialize:
-    //     mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
-    //     next(1);
+        mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
+        next(1);
     }
 
-    // void VybeSC::next(int nSamples) {
-    //     (vybe_hooks.next)(this, nSamples);
+    VybeSC::~VybeSC() {
+        if (vybe_hooks.dtor == NULL) {
+            return;
+        }
+        (vybe_hooks.dtor)(this, &vybe_allocator);
+    }
 
-    //     // Audio rate input
-    //     // const float* input = in(0);
-
-    //     // // Control rate parameter: gain.
-    //     // const float gain = in0(1);
-
-    //     // // Output buffer
-    //     // float* outbuf = out(0);
-
-    //     // if (nSamples + m_buffer_current_pos - 1 >= m_buffer->len) {
-    //     //     m_buffer_current_pos = 0;
-    //     // }
-
-    //     // simple gain function
-    //     // for (int i = 0; i < nSamples; ++i) {
-    //     //     outbuf[i] = input[i] * gain;
-
-    //     //     // m_buffer->arr[m_buffer_current_pos] = outbuf[i];
-    //     //     // m_buffer->timeline[m_buffer_current_pos] = m_buffer_global_pos;
-    //     //     // m_buffer_current_pos++;
-    //     //     // m_buffer_global_pos++;
-    //     // }
-
-    //     //(*m_function_pointer)(this, nSamples);
-    // }
+    void VybeSC::next(int nSamples) {
+        (vybe_hooks.next)(this, nSamples);
+    }
 } // namespace VybeSC
 
 // void VybeSC_set_shared_memory_path(VybeSC::VybeSC *unit, sc_msg_iter *args) {

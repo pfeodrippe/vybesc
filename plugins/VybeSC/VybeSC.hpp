@@ -35,13 +35,13 @@ namespace VybeSC {
         VybeSC();
 
         // Destructor
-        // ~VybeSC();
+        ~VybeSC();
 
         // void set_shared_memory_path(sc_msg_iter *args);
 
     private:
         // Calc function
-        //void next(int nSamples);
+        void next(int nSamples);
 
         // Other functions
 
