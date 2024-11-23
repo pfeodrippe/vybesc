@@ -24,25 +24,27 @@ static VybeAllocator vybe_allocator;
 namespace VybeSC {
 
     VybeSC::VybeSC() {
-        if (vybe_hooks.ctor == NULL) {
-            std::cout << "WARN: vybe_hooks is not initialized yet!! VybeSC will be a noop until then\n" << std::flush;
+        if (vybe_hooks.ctor != NULL) {
+            m_data = (vybe_hooks.ctor)(this, &vybe_allocator);
+        }
+
+        if (vybe_hooks.next == NULL) {
+            std::cout << "WARN: vybe_hooks does not have a `next` hook function defined`!! VybeSC will be a noop until then\n" << std::flush;
             return;
         }
-        (vybe_hooks.ctor)(this, &vybe_allocator);
 
         mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
         next(1);
     }
 
     VybeSC::~VybeSC() {
-        if (vybe_hooks.dtor == NULL) {
-            return;
+        if (vybe_hooks.dtor != NULL) {
+            (vybe_hooks.dtor)(this, m_data, &vybe_allocator);
         }
-        (vybe_hooks.dtor)(this, &vybe_allocator);
     }
 
     void VybeSC::next(int nSamples) {
-        (vybe_hooks.next)(this, nSamples);
+        (vybe_hooks.next)(this, m_data, nSamples);
     }
 } // namespace VybeSC
 

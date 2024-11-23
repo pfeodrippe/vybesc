@@ -20,12 +20,11 @@ struct VybeAllocator {
 
 // Runtime hooks for the dynamic lib.
 struct VybeHooks {
-    void (*ctor)(Unit*, VybeAllocator*);
-    void (*dtor)(Unit*, VybeAllocator*);
-    void (*next)(Unit*, int);
+    // ctor returns the dyn lib data.
+    void* (*ctor)(Unit*, VybeAllocator*);
+    void (*dtor)(Unit*, void*, VybeAllocator*);
+    void (*next)(Unit*, void*, int);
 };
-
-typedef void (*vybe_plugin_func)(Unit*, int);
 
 namespace VybeSC {
 
@@ -50,7 +49,8 @@ namespace VybeSC {
         long m_buffer_current_pos = 0;
         long m_buffer_global_pos = 0;
 
-        //vybe_plugin_func m_function_pointer;
+        // Pointer for state from the dyn lib.
+        void* m_data;
     };
 
 } // namespace VybeSC
