@@ -8,6 +8,8 @@
 #include <sstream>
 #include <dlfcn.h>
 #include <iostream>
+#include <thread>
+#include <vector>
 
 #include "jshm.hpp"
 
@@ -115,8 +117,7 @@ void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, v
     // Args are
     //   - lib location (string)
     //   // - load function name (string)
-    static void *handle;
-    handle = dlopen(args->gets(), RTLD_NOW);
+    void *handle = dlopen(args->gets(), RTLD_NOW);
 
     std::cout << "OLHA_TEST" << "\n"
               << std::flush;
@@ -137,13 +138,21 @@ void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, v
         return;
     }
 
-    const char *args2[] = {
+    std::vector<const char *> args2 = {
         "shared-host", // program name placeholder, dropped by the runtime
         "alpha",
         "beta",
-        NULL};
-    int exit_code = entry(3, args2);
-    dlclose(handle);
+        nullptr};
+
+    std::thread([handle, entry, args2 = std::move(args2)]() mutable
+                {
+        int exit_code = entry(3, args2.data());
+        std::cout << "entry returned " << exit_code << "\n" << std::flush;
+        if (handle)
+        {
+            dlclose(handle);
+        } })
+        .detach();
 
     // TODO Load dtor
 
