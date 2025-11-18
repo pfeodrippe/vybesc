@@ -38,7 +38,7 @@ if [[ ! -f "${SOURCE_PLUGIN}" ]]; then
 fi
 
 readonly TARGET_PATHS=(
-  "$HOME/dev/games/vybe_native/macos/universal/supercollider/Resources/plugins"
+  "$HOME/dev/vybe-games/vybe_native/macos/universal/supercollider/Resources/plugins"
   "$HOME/dev/vybe/vybe_native/macos/universal/supercollider/Resources/plugins"
   "$HOME/dev/vybe/sonic-pi/prebuilt/macos/universal/supercollider/Resources/plugins"
 )

@@ -11,25 +11,30 @@
 
 #include "jshm.hpp"
 
-static InterfaceTable* ft;
+static InterfaceTable *ft;
 
 // cmake --build . --config Debug && cp VybeSC_scsynth.scx ~/dev/games/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/vybe_native/macos/universal/supercollider/Resources/plugins && cp VybeSC_scsynth.scx ~/dev/vybe/sonic-pi/prebuilt/macos/universal/supercollider/Resources/plugins/VybeSC_scsynth.scx
 
-static VybeSlice* vybe_slice;
+static VybeSlice *vybe_slice;
 static VybeHooks vybe_hooks;
-static void* vybe_function_handle;
+static void *vybe_function_handle;
 
 static VybeAllocator vybe_allocator;
 
-namespace VybeSC {
+namespace VybeSC
+{
 
-    VybeSC::VybeSC() {
-        if (vybe_hooks.ctor != NULL) {
+    VybeSC::VybeSC()
+    {
+        if (vybe_hooks.ctor != NULL)
+        {
             m_data = (vybe_hooks.ctor)(this, &vybe_allocator);
         }
 
-        if (vybe_hooks.next == NULL) {
-            std::cout << "WARN: vybe_hooks does not have a `next` hook function defined`!! VybeSC will be a noop until then\n" << std::flush;
+        if (vybe_hooks.next == NULL)
+        {
+            std::cout << "WARN: vybe_hooks does not have a `next` hook function defined`!! VybeSC will be a noop until then\n"
+                      << std::flush;
             return;
         }
 
@@ -37,13 +42,16 @@ namespace VybeSC {
         next(1);
     }
 
-    VybeSC::~VybeSC() {
-        if (vybe_hooks.dtor != NULL) {
+    VybeSC::~VybeSC()
+    {
+        if (vybe_hooks.dtor != NULL)
+        {
             (vybe_hooks.dtor)(this, m_data, &vybe_allocator);
         }
     }
 
-    void VybeSC::next(int nSamples) {
+    void VybeSC::next(int nSamples)
+    {
         (vybe_hooks.next)(this, m_data, nSamples);
     }
 } // namespace VybeSC
@@ -53,21 +61,25 @@ namespace VybeSC {
 // }
 
 // Check DemoUGens.cpp in the supercollider repo.
-void VybeSC_plugin_cmd(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
-    //Print("->cmdDemoFunc %d\n", args->geti());
-    //Print("->cmdDemoFunc %d\n", args->geti());
-    vybe_slice = (VybeSlice*)jshm::shared_memory::open(args->gets(), 1024 * 1024 * 128)->address();
+void VybeSC_plugin_cmd(World *inWorld, void *inUserData, struct sc_msg_iter *args, void *replyAddr)
+{
+    // Print("->cmdDemoFunc %d\n", args->geti());
+    // Print("->cmdDemoFunc %d\n", args->geti());
+    vybe_slice = (VybeSlice *)jshm::shared_memory::open(args->gets(), 1024 * 1024 * 128)->address();
 }
 
-void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, void* replyAddr) {
+void VybeSC_dlopen(World *inWorld, void *inUserData, struct sc_msg_iter *args, void *replyAddr)
+{
     // Args are
     //   - lib location (string)
     //   - load function name (string)
 
     vybe_function_handle = dlopen(args->gets(), RTLD_NOW);
 
-    if (!vybe_function_handle) {
-        std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
+    if (!vybe_function_handle)
+    {
+        std::cout << "dlopen ERROR --=-=-=-=\n"
+                  << std::flush;
         dlclose(vybe_function_handle);
         return;
     }
@@ -75,12 +87,13 @@ void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, v
     // Load plugin.
     vybe_allocator = {
         .alloc = ft->fRTAlloc,
-        .free  = ft->fRTFree
-    };
+        .free = ft->fRTFree};
 
-    auto vybe_plugin_load = (VybeHooks (*)(VybeAllocator*))dlsym(vybe_function_handle, args->gets());
-    if (vybe_plugin_load == NULL) {
-        std::cout << "Could not find vybe_plugin_load\n" << std::flush;
+    auto vybe_plugin_load = (VybeHooks (*)(VybeAllocator *))dlsym(vybe_function_handle, args->gets());
+    if (vybe_plugin_load == NULL)
+    {
+        std::cout << "Could not find vybe_plugin_load\n"
+                  << std::flush;
         return;
     }
     vybe_hooks = (*vybe_plugin_load)(&vybe_allocator);
@@ -95,7 +108,55 @@ void VybeSC_dlopen(World* inWorld, void* inUserData, struct sc_msg_iter* args, v
     // }
 }
 
-PluginLoad(VybeSCUGens) {
+typedef int (*jank_entrypoint_fn)(int, const char **);
+
+void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, void *replyAddr)
+{
+    // Args are
+    //   - lib location (string)
+    //   // - load function name (string)
+    static void *handle;
+    handle = dlopen(args->gets(), RTLD_NOW);
+
+    std::cout << "OLHA_TEST" << "\n"
+              << std::flush;
+
+    if (!handle)
+    {
+        std::cout << "dlopen ERROR --=-=-=-=\n"
+                  << std::flush;
+        dlclose(handle);
+        return;
+    }
+
+    jank_entrypoint_fn entry = (jank_entrypoint_fn)dlsym(handle, "jank_entrypoint");
+    if (entry == NULL)
+    {
+        fprintf(stderr, "dlsym failed: %s\n", dlerror());
+        dlclose(handle);
+        return;
+    }
+
+    const char *args2[] = {
+        "shared-host", // program name placeholder, dropped by the runtime
+        "alpha",
+        "beta",
+        NULL};
+    int exit_code = entry(3, args2);
+    dlclose(handle);
+
+    // TODO Load dtor
+
+    // Load next.
+    // m_function_pointer = (vybe_plugin_func)dlsym(vybe_function_handle, args->gets());
+    // if (m_function_pointer == NULL) {
+    //     fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
+    //     return;
+    // }
+}
+
+PluginLoad(VybeSCUGens)
+{
     // Plugin magic
     ft = inTable;
     registerUnit<VybeSC::VybeSC>(ft, "VybeSC", false);
@@ -103,8 +164,9 @@ PluginLoad(VybeSCUGens) {
     // Plugin command, use with `/cmd`.
     DefinePlugInCmd("/vybe_cmd", VybeSC_plugin_cmd, NULL);
     DefinePlugInCmd("/vybe_dlopen", VybeSC_dlopen, NULL);
+    DefinePlugInCmd("/vybe_dltest", VybeSC_dltest, NULL);
 
     // We define a unit command here, an instance method that can be called from the client
     // by using `/u_cmd`.
-    //DefineUnitCmd("VybeSC", "/set_shared_memory_path", (UnitCmdFunc)&VybeSC_set_shared_memory_path);
+    // DefineUnitCmd("VybeSC", "/set_shared_memory_path", (UnitCmdFunc)&VybeSC_set_shared_memory_path);
 }
