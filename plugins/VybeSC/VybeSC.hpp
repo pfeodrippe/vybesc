@@ -4,7 +4,6 @@
 #pragma once
 
 #include "SC_PlugIn.hpp"
-#include <janet.h>
 
 struct VybeSlice {
     long len;
@@ -51,6 +50,9 @@ namespace VybeSC {
 
         // Pointer for state from the dyn lib.
         void* m_data;
+
+        // Timing for periodic logging
+        std::chrono::steady_clock::time_point m_last_log_time = std::chrono::steady_clock::now();
     };
 
 } // namespace VybeSC

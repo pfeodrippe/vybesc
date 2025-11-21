@@ -4,12 +4,12 @@
 #include "SC_PlugIn.hpp"
 #include "VybeSC.hpp"
 
-#include <janet.h>
 #include <sstream>
 #include <dlfcn.h>
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <chrono>
 
 #include "jshm.hpp"
 
@@ -23,38 +23,102 @@ static void *vybe_function_handle;
 
 static VybeAllocator vybe_allocator;
 
+typedef void (*next)(Unit*, void*, int);
+static next my_next = NULL;
+
+// namespace VybeSC
+// {
+
+//     VybeSC::VybeSC()
+//     {
+//         if (vybe_hooks.ctor != NULL)
+//         {
+//             m_data = (vybe_hooks.ctor)(this, &vybe_allocator);
+//         }
+
+//         if (vybe_hooks.next == NULL)
+//         {
+//             std::cout << "WARN: vybe_hooks does not have a `next` hook function defined`!! VybeSC will be a noop until then\n"
+//                       << std::flush;
+//             return;
+//         }
+
+//         mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
+//         next(1);
+//     }
+
+//     VybeSC::~VybeSC()
+//     {
+//         if (vybe_hooks.dtor != NULL)
+//         {
+//             (vybe_hooks.dtor)(this, m_data, &vybe_allocator);
+//         }
+//     }
+
+//     void VybeSC::next(int nSamples)
+//     {
+//         (vybe_hooks.next)(this, m_data, nSamples);
+//     }
+// } // namespace VybeSC
+
 namespace VybeSC
 {
 
     VybeSC::VybeSC()
     {
-        if (vybe_hooks.ctor != NULL)
-        {
-            m_data = (vybe_hooks.ctor)(this, &vybe_allocator);
-        }
-
-        if (vybe_hooks.next == NULL)
-        {
-            std::cout << "WARN: vybe_hooks does not have a `next` hook function defined`!! VybeSC will be a noop until then\n"
-                      << std::flush;
-            return;
-        }
-
         mCalcFunc = make_calc_function<VybeSC, &VybeSC::next>();
         next(1);
     }
 
     VybeSC::~VybeSC()
     {
-        if (vybe_hooks.dtor != NULL)
-        {
-            (vybe_hooks.dtor)(this, m_data, &vybe_allocator);
-        }
+        // if (vybe_hooks.dtor != NULL)
+        // {
+        //     (vybe_hooks.dtor)(this, m_data, &vybe_allocator);
+        // }
     }
 
     void VybeSC::next(int nSamples)
     {
-        (vybe_hooks.next)(this, m_data, nSamples);
+        // Log every 5 seconds
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_last_log_time);
+        if (elapsed.count() >= 1)
+        {
+            std::cout << "VybeSC::next called - buffer pos: " << m_buffer_current_pos << ", nSamples: " << nSamples << ", my_next: " << (my_next == NULL ? "NULL" : "ACTIVE") << "\n" << std::flush;
+            m_last_log_time = now;
+        }
+
+        if (my_next == NULL)
+        {
+            return;
+        }
+
+        try
+        {
+            my_next(this, m_data, nSamples);
+        }
+        catch (const std::exception &e)
+        {
+            std::cout << "ERROR in my_next (std::exception): " << e.what() << "\n" << std::flush;
+        }
+        catch (const char *e)
+        {
+            std::cout << "ERROR in my_next (const char*): " << e << "\n" << std::flush;
+        }
+        catch (int e)
+        {
+            std::cout << "ERROR in my_next (int): " << e << "\n" << std::flush;
+        }
+        catch (...)
+        {
+            std::cout << "ERROR in my_next: Unknown exception caught (non-std::exception type)\n" << std::flush;
+            std::cout << "  Possible causes:\n";
+            std::cout << "  - Exception thrown from C code without proper wrapping\n";
+            std::cout << "  - Segmentation fault or access violation\n";
+            std::cout << "  - Stack overflow\n";
+            std::cout << "  - Custom exception type not derived from std::exception\n" << std::flush;
+        }
     }
 } // namespace VybeSC
 
@@ -117,15 +181,15 @@ void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, v
     // Args are
     //   - lib location (string)
     //   // - load function name (string)
-    void *handle = dlopen(args->gets(), RTLD_NOW);
+    auto path = args->gets();
+    void *handle = dlopen(path, RTLD_NOW);
+    vybe_function_handle = handle;
 
-    std::cout << "OLHA_TEST" << "\n"
-              << std::flush;
+    std::cout << "OLHA_TEST - " << path << "\n"<< std::flush;
 
     if (!handle)
     {
-        std::cout << "dlopen ERROR --=-=-=-=\n"
-                  << std::flush;
+        std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
         dlclose(handle);
         return;
     }
@@ -138,21 +202,34 @@ void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, v
         return;
     }
 
-    std::vector<const char *> args2 = {
+    std::vector<const char *> args1 = {
         "shared-host", // program name placeholder, dropped by the runtime
         "alpha",
-        "beta",
         nullptr};
 
-    std::thread([handle, entry, args2 = std::move(args2)]() mutable
-                {
-        int exit_code = entry(3, args2.data());
+    std::vector<const char *> args2 = {
+        "shared-host", // program name placeholder, dropped by the runtime
+        "start-server",
+        nullptr};
+
+    int exit_code = entry(2, args1.data());
+    std::cout << "AAA --=-=-=-= " << exit_code << "\n" << std::flush;
+
+    std::thread([handle, entry, args2 = std::move(args2)]() mutable {
+        std::cout << "BBB --=-=-=-=\n" << std::flush;
+        int exit_code = entry(2, args2.data());
         std::cout << "entry returned " << exit_code << "\n" << std::flush;
-        if (handle)
-        {
-            dlclose(handle);
-        } })
-        .detach();
+    }).detach();
+
+    std::cout << "CCC --=-=-=-=\n" << std::flush;
+
+    my_next = (next)dlsym(handle, "my_multiplier");
+    if (my_next == NULL)
+    {
+        std::cout << "ERR --=-=-=-= " << "\n" << dlerror() << std::flush;
+    } else {
+        std::cout << "DDD --=-=-=-= " << "\n" << std::flush;
+    }
 
     // TODO Load dtor
 
