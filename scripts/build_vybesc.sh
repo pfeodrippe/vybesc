@@ -2,7 +2,7 @@
 # Build VybeSC and copy the resulting plugin into the SuperCollider plugin folders.
 # Optionally accepts `BUILD_TYPE`, `RUNTIME_DIR`, and `RUNTIME_OBJECTS` via environment or CLI.
 
-set -euo pipefail
+set -xeuo pipefail
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly BUILD_DIR="${BUILD_DIR:-build}"

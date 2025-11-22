@@ -26,6 +26,7 @@ static void *vybe_function_handle;
 static VybeAllocator vybe_allocator;
 
 typedef void (*next)(Unit*, void*, int);
+typedef next (*get_next_fn)();
 static next my_next = NULL;
 
 // namespace VybeSC
@@ -197,6 +198,7 @@ static void reset_dltest_stats(VybeSC_DLTestStats *stats)
     stats->generatec_exit_code = -1;
     stats->start_server_exit_code = -1;
     stats->my_next_loaded = 0;
+    stats->my_next_fn = nullptr;
 }
 
 static int run_jank_command(jank_entrypoint_fn entry, const std::vector<std::string> &args)
@@ -304,17 +306,29 @@ static bool VybeSC_run_dltest_internal(const char *path, const DlTestConfig &con
         }
     }
 
-    my_next = (next)dlsym(handle, "my_multiplier");
+    get_next_fn get_next = (get_next_fn)dlsym(handle, "my_multiplier");
+    if (get_next == NULL)
+    {
+        std::cout << "ERR: Could not find my_multiplier symbol --=-=-=-= "
+                  << "\n"
+                  << dlerror() << std::flush;
+        if (stats != nullptr)
+        {
+            stats->my_next_loaded = 0;
+        }
+        return false;
+    }
+
+    my_next = get_next();
     if (stats != nullptr)
     {
         stats->my_next_loaded = (my_next == NULL) ? 0 : 1;
+        stats->my_next_fn = (my_next_fn_t)my_next;
     }
 
     if (my_next == NULL)
     {
-        std::cout << "ERR --=-=-=-= "
-                  << "\n"
-                  << dlerror() << std::flush;
+        std::cout << "ERR: my_multiplier() returned NULL --=-=-=-= \n" << std::flush;
         return false;
     }
 

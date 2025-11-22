@@ -90,6 +90,35 @@ int main()
         return 1;
     }
 
+    if (stats.my_next_fn)
+    {
+        std::cout << "my_next_fn successfully loaded from my_multiplier()!" << std::endl;
+        std::cout << "Calling my_next_fn with nullptr arguments..." << std::endl;
+        try
+        {
+            stats.my_next_fn(nullptr, nullptr, 64);
+            std::cout << "my_next_fn call completed!" << std::endl;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "my_next_fn threw std::exception: " << e.what() << std::endl;
+            dlclose(plugin_handle);
+            return 1;
+        }
+        catch (...)
+        {
+            std::cerr << "my_next_fn threw unknown exception" << std::endl;
+            dlclose(plugin_handle);
+            return 1;
+        }
+    }
+    else
+    {
+        std::cerr << "my_next_fn was not set in stats" << std::endl;
+        dlclose(plugin_handle);
+        return 1;
+    }
+
     dlclose(plugin_handle);
     return 0;
 }
