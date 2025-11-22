@@ -97,4 +97,16 @@ sc_add_server_plugin(
 # END PLUGIN TARGET DEFINITION
 ####################################################################################################
 
+enable_testing()
+
+add_executable(vybesc_dltest_shim_test tests/vybesc_dltest_shim_test.cpp)
+target_include_directories(vybesc_dltest_shim_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_dependencies(vybesc_dltest_shim_test VybeSC_scsynth)
+target_compile_definitions(vybesc_dltest_shim_test PRIVATE VYBESC_PLUGIN_PATH="$<TARGET_FILE:VybeSC_scsynth>")
+if(NOT APPLE)
+    target_link_libraries(vybesc_dltest_shim_test PRIVATE dl)
+endif()
+
+add_test(NAME VybeSCDltestShim COMMAND vybesc_dltest_shim_test)
+
 message(STATUS "Generating plugin targets done")

@@ -3,12 +3,14 @@
 
 #include "SC_PlugIn.hpp"
 #include "VybeSC.hpp"
+#include "VybeSC_dltest_shim.h"
 
 #include <sstream>
 #include <dlfcn.h>
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <string>
 #include <chrono>
 
 #include "jshm.hpp"
@@ -176,22 +178,81 @@ void VybeSC_dlopen(World *inWorld, void *inUserData, struct sc_msg_iter *args, v
 
 typedef int (*jank_entrypoint_fn)(int, const char **);
 
-void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, void *replyAddr)
+struct DlTestConfig
 {
-    // Args are
-    //   - lib location (string)
-    //   // - load function name (string)
-    auto path = args->gets();
+    bool call_generatec = false;
+    bool async_start_server = true;
+    bool run_start_server = true;
+    const char *generatec_target = nullptr;
+};
+
+static void reset_dltest_stats(VybeSC_DLTestStats *stats)
+{
+    if (stats == nullptr)
+    {
+        return;
+    }
+
+    stats->alpha_exit_code = -1;
+    stats->generatec_exit_code = -1;
+    stats->start_server_exit_code = -1;
+    stats->my_next_loaded = 0;
+}
+
+static int run_jank_command(jank_entrypoint_fn entry, const std::vector<std::string> &args)
+{
+    std::vector<const char *> argv;
+    argv.reserve(args.size() + 2);
+
+    argv.push_back("shared-host");
+    for (const auto &arg : args)
+    {
+        argv.push_back(arg.c_str());
+    }
+    argv.push_back(nullptr);
+
+    int argc = static_cast<int>(argv.size() - 1);
+    int exit_code = entry(argc, argv.data());
+
+    std::cout << "jank_entrypoint invoked with";
+    for (size_t i = 1; i < argv.size() - 1; ++i)
+    {
+        std::cout << ' ' << argv[i];
+    }
+    std::cout << ", exit_code=" << exit_code << "\n" << std::flush;
+
+    return exit_code;
+}
+
+static void run_jank_command_async(jank_entrypoint_fn entry, std::vector<std::string> args)
+{
+    std::thread([entry, args = std::move(args)]() mutable {
+        run_jank_command(entry, args);
+    }).detach();
+}
+
+static bool VybeSC_run_dltest_internal(const char *path, const DlTestConfig &config, VybeSC_DLTestStats *stats)
+{
+    reset_dltest_stats(stats);
+
+    if (path == nullptr)
+    {
+        std::cout << "VybeSC_run_dltest_internal ERROR: null path provided\n"
+                  << std::flush;
+        return false;
+    }
+
     void *handle = dlopen(path, RTLD_NOW);
     vybe_function_handle = handle;
 
-    std::cout << "OLHA_TEST - " << path << "\n"<< std::flush;
+    std::cout << "OLHA_TEST - " << path << "\n"
+              << std::flush;
 
     if (!handle)
     {
-        std::cout << "dlopen ERROR --=-=-=-=\n" << std::flush;
-        dlclose(handle);
-        return;
+        std::cout << "dlopen ERROR --=-=-=-=\n"
+                  << std::flush;
+        return false;
     }
 
     jank_entrypoint_fn entry = (jank_entrypoint_fn)dlsym(handle, "jank_entrypoint");
@@ -199,46 +260,96 @@ void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, v
     {
         fprintf(stderr, "dlsym failed: %s\n", dlerror());
         dlclose(handle);
-        return;
+        vybe_function_handle = nullptr;
+        return false;
     }
 
-    std::vector<const char *> args1 = {
-        "shared-host", // program name placeholder, dropped by the runtime
-        "alpha",
-        nullptr};
+    int alpha_exit_code = run_jank_command(entry, std::vector<std::string>{"alpha"});
+    if (stats != nullptr)
+    {
+        stats->alpha_exit_code = alpha_exit_code;
+    }
 
-    std::vector<const char *> args2 = {
-        "shared-host", // program name placeholder, dropped by the runtime
-        "start-server",
-        nullptr};
+    if (config.call_generatec)
+    {
+        std::vector<std::string> generatec_args = {"generatec"};
+        if (config.generatec_target != nullptr)
+        {
+            generatec_args.emplace_back(config.generatec_target);
+        }
+        int generatec_exit_code = run_jank_command(entry, generatec_args);
+        if (stats != nullptr)
+        {
+            stats->generatec_exit_code = generatec_exit_code;
+        }
+    }
 
-    int exit_code = entry(2, args1.data());
-    std::cout << "AAA --=-=-=-= " << exit_code << "\n" << std::flush;
-
-    std::thread([handle, entry, args2 = std::move(args2)]() mutable {
-        std::cout << "BBB --=-=-=-=\n" << std::flush;
-        int exit_code = entry(2, args2.data());
-        std::cout << "entry returned " << exit_code << "\n" << std::flush;
-    }).detach();
-
-    std::cout << "CCC --=-=-=-=\n" << std::flush;
+    if (config.run_start_server)
+    {
+        if (config.async_start_server)
+        {
+            run_jank_command_async(entry, std::vector<std::string>{"start-server"});
+            if (stats != nullptr)
+            {
+                stats->start_server_exit_code = 0;
+            }
+        }
+        else
+        {
+            int start_server_exit = run_jank_command(entry, std::vector<std::string>{"start-server"});
+            if (stats != nullptr)
+            {
+                stats->start_server_exit_code = start_server_exit;
+            }
+        }
+    }
 
     my_next = (next)dlsym(handle, "my_multiplier");
-    if (my_next == NULL)
+    if (stats != nullptr)
     {
-        std::cout << "ERR --=-=-=-= " << "\n" << dlerror() << std::flush;
-    } else {
-        std::cout << "DDD --=-=-=-= " << "\n" << std::flush;
+        stats->my_next_loaded = (my_next == NULL) ? 0 : 1;
     }
 
-    // TODO Load dtor
+    if (my_next == NULL)
+    {
+        std::cout << "ERR --=-=-=-= "
+                  << "\n"
+                  << dlerror() << std::flush;
+        return false;
+    }
 
-    // Load next.
-    // m_function_pointer = (vybe_plugin_func)dlsym(vybe_function_handle, args->gets());
-    // if (m_function_pointer == NULL) {
-    //     fprintf(stderr, "Could not find vybe_plugin_func: %s\n", dlerror());
-    //     return;
-    // }
+    return true;
+}
+
+void VybeSC_dltest(World *inWorld, void *inUserData, struct sc_msg_iter *args, void *replyAddr)
+{
+    // Args are
+    //   - lib location (string)
+    const char *path = args->gets();
+
+    DlTestConfig config;
+    config.call_generatec = true;
+    config.async_start_server = true;
+    config.run_start_server = true;
+    config.generatec_target = path;
+
+    if (!VybeSC_run_dltest_internal(path, config, nullptr))
+    {
+        std::cout << "VybeSC_dltest failed for path: " << (path ? path : "<null>") << "\n"
+                  << std::flush;
+    }
+}
+
+extern "C" __attribute__((visibility("default"))) int VybeSC_dltest_shim(const char *dylib_path, int call_generatec, VybeSC_DLTestStats *out_stats)
+{
+    DlTestConfig config;
+    config.call_generatec = (call_generatec != 0);
+    config.async_start_server = true;
+    config.run_start_server = false;
+    config.generatec_target = dylib_path;
+
+    bool ok = VybeSC_run_dltest_internal(dylib_path, config, out_stats);
+    return ok ? 0 : 1;
 }
 
 PluginLoad(VybeSCUGens)
