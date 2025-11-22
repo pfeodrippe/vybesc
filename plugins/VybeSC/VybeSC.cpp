@@ -10,50 +10,8 @@
 #include <thread>
 #include <vector>
 #include <chrono>
-#include <csignal>
-#include <cxxabi.h>
-#include <typeinfo>
-#include <execinfo.h>
 
 #include "jshm.hpp"
-
-// Signal handler for runtime diagnostics
-static thread_local bool in_signal_handler = false;
-static thread_local std::string last_signal_info = "";
-
-void signal_handler(int sig) {
-    if (in_signal_handler) return;
-    in_signal_handler = true;
-    
-    const char* sig_name = "UNKNOWN";
-    switch(sig) {
-        case SIGSEGV: sig_name = "SIGSEGV (Segmentation Fault)"; break;
-        case SIGBUS: sig_name = "SIGBUS (Bus Error)"; break;
-        case SIGABRT: sig_name = "SIGABRT (Abort)"; break;
-        case SIGFPE: sig_name = "SIGFPE (Floating Point Exception)"; break;
-        case SIGILL: sig_name = "SIGILL (Illegal Instruction)"; break;
-    }
-    
-    std::cout << "\n========== SIGNAL CAUGHT: " << sig_name << " ==========\n" << std::flush;
-    
-    // Print backtrace
-    void* addrlist[32];
-    int addrlen = backtrace(addrlist, 32);
-    char** symbollist = backtrace_symbols(addrlist, addrlen);
-    
-    std::cout << "Backtrace:\n";
-    for(int i = 0; i < addrlen; i++) {
-        std::cout << "  [" << i << "] " << symbollist[i] << "\n";
-    }
-    std::cout << "==========================================\n" << std::flush;
-    
-    free(symbollist);
-    in_signal_handler = false;
-    
-    // Re-raise to let default handler process
-    signal(sig, SIG_DFL);
-    raise(sig);
-}
 
 static InterfaceTable *ft;
 
@@ -143,7 +101,6 @@ namespace VybeSC
         catch (const std::exception &e)
         {
             std::cout << "ERROR in my_next (std::exception): " << e.what() << "\n" << std::flush;
-            std::cout << "  Exception type: " << typeid(e).name() << "\n" << std::flush;
         }
         catch (const char *e)
         {
@@ -155,23 +112,12 @@ namespace VybeSC
         }
         catch (...)
         {
-            std::cout << "\n========== ERROR in my_next: Unknown exception caught ==========\n" << std::flush;
-            std::cout << "This likely indicates one of:\n";
-            std::cout << "  1. C code throwing non-std::exception\n";
-            std::cout << "  2. Segmentation fault or memory access violation\n";
-            std::cout << "  3. Stack overflow\n";
-            std::cout << "  4. C++ exception from loaded dynamic library\n";
-            std::cout << "\nDEBUGGING INFO:\n";
-            std::cout << "  my_next function pointer: " << my_next << "\n";
-            std::cout << "  m_data pointer: " << m_data << "\n";
-            std::cout << "  nSamples: " << nSamples << "\n";
-            std::cout << "  Buffer pos: " << m_buffer_current_pos << "\n";
-            
-            // Try to get exception type info
-            std::cout << "\nTo get more info, compile with ASAN:\n";
-            std::cout << "  export ASAN_OPTIONS=verbosity=2:halt_on_error=1\n";
-            std::cout << "  Or use lldb with: (lldb) bt all\n";
-            std::cout << "============================================================\n" << std::flush;
+            std::cout << "ERROR in my_next: Unknown exception caught (non-std::exception type)\n" << std::flush;
+            std::cout << "  Possible causes:\n";
+            std::cout << "  - Exception thrown from C code without proper wrapping\n";
+            std::cout << "  - Segmentation fault or access violation\n";
+            std::cout << "  - Stack overflow\n";
+            std::cout << "  - Custom exception type not derived from std::exception\n" << std::flush;
         }
     }
 } // namespace VybeSC
@@ -300,13 +246,6 @@ PluginLoad(VybeSCUGens)
     // Plugin magic
     ft = inTable;
     registerUnit<VybeSC::VybeSC>(ft, "VybeSC", false);
-
-    // Set up signal handlers for better crash diagnostics
-    signal(SIGSEGV, signal_handler);
-    signal(SIGBUS, signal_handler);
-    signal(SIGABRT, signal_handler);
-    signal(SIGFPE, signal_handler);
-    signal(SIGILL, signal_handler);
 
     // Plugin command, use with `/cmd`.
     DefinePlugInCmd("/vybe_cmd", VybeSC_plugin_cmd, NULL);
